@@ -539,6 +539,8 @@
             background: linear-gradient(135deg, #ff6b9d, #c44569);
             color: white;
             box-shadow: 0 0 30px rgba(255, 107, 157, 0.5);
+            position: relative;
+            z-index: 9999;
         }
 
         .btn-yes:hover {
@@ -2287,6 +2289,7 @@
             cursor: pointer;
             box-shadow: 0 0 30px rgba(255, 107, 157, 0.5);
             transition: all 0.3s ease;
+            touch-action: manipulation;
         }
 
         .start-btn:hover {
@@ -3100,8 +3103,26 @@
             }
         }
 
+        // Attach both click and touchend to an element so it responds on desktop and mobile.
+        // The once flag removes all listeners after the first fire (mirrors { once: true }).
+        function onTap(el, handler, once = false) {
+            let done = false;
+            function fire(e) {
+                if (once && done) return;
+                done = true;
+                if (e.type === 'touchend') e.preventDefault();
+                handler(e);
+                if (once) {
+                    el.removeEventListener('click', fire);
+                    el.removeEventListener('touchend', fire);
+                }
+            }
+            el.addEventListener('click', fire);
+            el.addEventListener('touchend', fire, { passive: false });
+        }
+
         // No button keeps running away (mouse + touch)
-        function runAwayNo(e) {
+        function runAwayNo() {
             const btn = document.getElementById('btnNo');
             const maxX = window.innerWidth - btn.offsetWidth - 50;
             const maxY = window.innerHeight - btn.offsetHeight - 50;
@@ -3113,25 +3134,14 @@
         document.getElementById('btnNo').addEventListener('mouseover', runAwayNo);
         document.getElementById('btnNo').addEventListener('touchstart', function(e) {
             e.preventDefault();
-            runAwayNo(e);
+            runAwayNo();
         }, { passive: false });
 
-        // Yes button – works on both mouse (click) and touch (touchend)
-        // The flag ensures celebrate() is never called twice when both events fire
-        let celebrateTriggered = false;
+        // Yes button
+        onTap(document.getElementById('btnYes'), celebrate, true);
 
-        function triggerCelebrate(e) {
-            if (celebrateTriggered) return;
-            celebrateTriggered = true;
-            celebrate();
-        }
-
-        document.getElementById('btnYes').addEventListener('click', triggerCelebrate);
-        document.getElementById('btnYes').addEventListener('touchend', function(e) {
-            e.preventDefault(); // stops the 300ms-delayed synthetic click
-            triggerCelebrate(e);
-        }, { passive: false });
-        document.getElementById('skipBtn').addEventListener('click', skipToProposal);
+        // Skip button
+        onTap(document.getElementById('skipBtn'), skipToProposal, true);
 
         // Music control
         const bgMusic = document.getElementById('bgMusic');
@@ -3171,16 +3181,11 @@
         const startOverlay = document.getElementById('startOverlay');
         const startBtn = document.getElementById('startBtn');
 
-        startBtn.addEventListener('click', () => {
-            // Hide overlay
+        onTap(startBtn, () => {
             startOverlay.classList.add('hidden');
-
-            // Start music
             playMusic();
-
-            // Start animation
             setTimeout(runAnimation, 500);
-        });
+        }, true);
 
         // The romantic dance sequence
         async function startDanceSequence() {
@@ -3210,9 +3215,9 @@
             danceSubtitle.textContent = '"May I have this dance, my love?"';
             acceptBtn.classList.add('visible');
 
-            // Wait for her to accept (button click)
+            // Wait for her to accept (button tap – works on both desktop and mobile)
             await new Promise(resolve => {
-                acceptBtn.addEventListener('click', resolve, { once: true });
+                onTap(acceptBtn, resolve, true);
             });
 
             // Phase 3: She accepts
